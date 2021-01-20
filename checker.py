@@ -41,11 +41,10 @@ if __name__ == "__main__":
 
     # axf_import should contain a list of top-level approximations
     for top_level_approx in axf_import:
-        ml_object = top_level_approx.to_ml_object()
-        top_approx_error = ml_object.approx_error
-        for sub_approx in ml_object.approx_list:
+        top_approx_error = top_level_approx.approx_error
+        for sub_id, sub_approx in enumerate(top_level_approx.approx_list):
             # checking that all listed errors are below top-level error
             if not top_approx_error >= sub_approx.approx_error:
-                print("[ERROR] approx-error for sub approximation {} exceeds top-level target {}".format(sub_approx.approx_error, top_approx_error))
+                print("[ERROR] approx-error for sub approximation (#{}) {} exceeds top-level target {}".format(sub_id, sub_approx.approx_error.value, top_approx_error.value))
                 sys.exit(1)
 
