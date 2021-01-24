@@ -1,1 +1,3 @@
 git+https://github.com/kalray/metalibm@axf
+matplotlib
+numpy

@@ -29,12 +29,17 @@
 
 import argparse
 import sys
+import matplotlib.pyplot as plt
+import numpy as np
 
 import metalibm_core.utility.axf_utils as axf_utils
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("filename", type=str, help="input file")
+    parser.add_argument("--error-hist", action="store_const", const=True,
+                        default=False,
+                        help="display error distribution histogram")
     args = parser.parse_args()
 
     axf_import = axf_utils.AXF_JSON_Importer.from_file(args.filename)
@@ -42,6 +47,25 @@ if __name__ == "__main__":
     # axf_import should contain a list of top-level approximations
     for top_level_approx in axf_import:
         top_approx_error = top_level_approx.approx_error
+
+        # displaying error histogram
+        if args.error_hist:
+            np_errors = np.array([float(sub_approx.approx_error.value) for sub_approx in top_level_approx.approx_list])
+
+            # logarithmic bining from https://stackoverflow.com/questions/47850202/plotting-a-histogram-on-a-log-scale-with-matplotlib?rq=1
+            # # histogram on log scale.
+            # Use non-equal bin sizes, such that they look equal on log scale.
+            min_error = min(np_errors)
+            max_error = max(np_errors)
+            print("min error: {}".format(min_error))
+            print("max error: {}".format(max_error))
+            NUM_BINS = 200
+            logbins = np.logspace(np.log10(min_error),np.log10(max_error), NUM_BINS)
+            fig, ax = plt.subplots(tight_layout=True)
+            plt.hist(np_errors, bins=logbins)
+            plt.xscale('log')
+            plt.show()
+
         for sub_id, sub_approx in enumerate(top_level_approx.approx_list):
             # checking that all listed errors are below top-level error
             if not top_approx_error >= sub_approx.approx_error:
