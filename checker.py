@@ -24,11 +24,14 @@
 # SOFTWARE.
 ###############################################################################
 # created:          Jan 17th, 2021
-# last-modified:    Jan 17th, 2021
+# last-modified:    Jan 24th, 2021
 ###############################################################################
 
 import argparse
 import sys
+import sollya
+from sollya import sup
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -40,9 +43,18 @@ if __name__ == "__main__":
     parser.add_argument("--error-hist", action="store_const", const=True,
                         default=False,
                         help="display error distribution histogram")
+    parser.add_argument("--exit-on-error", action="store_const", const=True,
+                        default=False,
+                        help="exit at first encountered error")
+    parser.add_argument("--check-level", action="store", default="light",
+                        choices=["light", "strong"],
+                        help="select checking strength (light: check against registered bound, strong: compute bounds and check")
     args = parser.parse_args()
 
     axf_import = axf_utils.AXF_JSON_Importer.from_file(args.filename)
+
+    # global error_count
+    error_count = 0
 
     # axf_import should contain a list of top-level approximations
     for top_level_approx in axf_import:
@@ -66,9 +78,34 @@ if __name__ == "__main__":
             plt.xscale('log')
             plt.show()
 
+        # checking error correctness
         for sub_id, sub_approx in enumerate(top_level_approx.approx_list):
             # checking that all listed errors are below top-level error
             if not top_approx_error >= sub_approx.approx_error:
                 print("[ERROR] approx-error for sub approximation (#{}) {} exceeds top-level target {}".format(sub_id, sub_approx.approx_error.value, top_approx_error.value))
-                sys.exit(1)
+                error_count += 1
+                if args.exit_on_error:
+                    sys.exit(1)
 
+            if args.check_level in ["strong"]:
+                sub_function = sub_approx.function
+                sub_approx_poly = sub_approx.poly.get_sollya_object()
+                # TODO/FIXME errorType should be derived from approx
+                #            error target type
+                # TODO/FIXME: manage accuracy properly
+                error_type = sub_approx.approx_error.sollya_error_type
+                eval_approx_error = sup(abs(sollya.supnorm(sub_approx_poly,
+                                                           sub_function,
+                                                           sub_approx.interval,
+                                                           error_type,
+                                                           2**-24)))
+                eval_approx_error_inf = sup(abs(sollya.infnorm(sub_approx_poly - sub_function,
+                                                               sub_approx.interval)))
+                if sub_approx.approx_error.value > eval_approx_error and sub_approx.approx_error.value > eval_approx_error_inf:
+                    print("[ERROR] approx-error for sub approximation (#{}) infnorm={}, supnorm={} exceeds registered value {}".format(sub_id, eval_approx_error, eval_approx_error_inf, sub_approx.approx_error.value,))
+                    error_count += 1
+                    if args.exit_on_error:
+                        sys.exit(1)
+
+    if error_count:
+        sys.exit(1)
